@@ -1,4 +1,14 @@
 /*
+ *  RFID keyfob reader for https://theLab.ms
+ *  Shamelessly hacked together from bits and pieces found elsewhere 
+ *  by @lego - malfunction54@therac25.net
+ *  
+ *  I've attributed the code to the original (purportedly) authors
+ *  - base tag code (c) Michael Schoeffler 2018, http://www.mschoeffler.de 
+ *  - LCD code by Saeed Hosseini @ Electropeak https://electropeak.com/learn/
+ */
+
+/*
 Arduino 2x16 LCD - Detect Buttons
 modified on 18 Feb 2019
 by Saeed Hosseini @ Electropeak
