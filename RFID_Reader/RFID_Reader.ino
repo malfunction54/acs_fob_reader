@@ -4,9 +4,11 @@
  *  by @lego - malfunction54@therac25.net
  *  
  *  I've attributed the code to the original (purportedly) authors
- *  - base tag code (c) Michael Schoeffler 2018, http://www.mschoeffler.de 
+ *  - base tag code (c) Michael Schoeffler 2018, http://www.mschoeffler.de
+ *    code: https://mschoeffler.com/2018/01/05/arduino-tutorial-how-to-use-the-rdm630-rdm6300-rfid-reader/
  *  - LCD code by Saeed Hosseini @ Electropeak https://electropeak.com/learn/
  */
+
 
 /*
 Arduino 2x16 LCD - Detect Buttons
@@ -86,6 +88,16 @@ void loop() {
   }    
 }
 
+/* 
+ *  theLab's tag reader assumes Weigand encoding,
+ *  as described here: https://www.networkingsmith.com/learning-about-rfid-and-wiegand/
+ *  
+ *  This is why the IDs in the ACS don't match the numbers printed on the fobs/cards.
+ *  The fobs/cards use mifare encoding as described in the Schoeffler article.
+ *  
+ *  as a result, extract_tag() is modified from the original to produce the expected ID
+ *  
+ */
 unsigned extract_tag() {
     uint8_t msg_head = buffer[0];
     uint8_t *msg_data = buffer + 1; // 10 byte => data contains 2byte version + 8byte tag
@@ -93,21 +105,45 @@ unsigned extract_tag() {
     uint8_t *msg_data_tag = msg_data + 2;
     uint8_t *msg_checksum = buffer + 11; // 2 byte
     uint8_t msg_tail = buffer[13];
+    long    data_ver;
+    long    data_tag;
+    long    chksum;
 
     // print message that was sent from RDM630/RDM6300
     Serial.println("--------");
-    Serial.print("Complete buffer contents: ");
-    String myString = String((char *)buffer);
-    Serial.println(myString);
+    Serial.println("Complete buffer contents: ");
+    Serial.println("Message-Data (Binary): ");
+    for (int i = 0; i < BUFFER_SIZE; ++i) {
+      //Serial.print(char(buffer[i]));
+      printBinary(buffer[i]);
+      //Serial.print(" ");
+    }
+    Serial.println();
+    // full data is 14 bytes, we just need the first (most significant)
+    //   26 bits (3 Bytes and 2 bits)
+    // so grab the most significant 4 bytes
+    // shift right 6 bits
+    // shift right 1 bit to drop ending parity bit
+    // mask out most significant bit to ignore beginning parity bit
+    // Do we have the wiegand number?
 
     Serial.print("Message-Head: ");
     Serial.println(msg_head);
+    Serial.print("Message-Head (bin): ");
+    printBinary(msg_head);
+    Serial.println();
 
     Serial.println("Message-Data (HEX): ");
     for (int i = 0; i < DATA_VERSION_SIZE; ++i) {
       Serial.print(char(msg_data_version[i]));
     }
     Serial.println(" (version)");
+
+    Serial.println("Message-Data (bin): ");
+    data_ver = hexstr_to_value(msg_data_version, DATA_VERSION_SIZE);
+    printBinary(data_ver);
+    Serial.println(" (version)");
+
     for (int i = 0; i < DATA_TAG_SIZE; ++i) {
       Serial.print(char(msg_data_tag[i]));
     }
@@ -122,6 +158,10 @@ unsigned extract_tag() {
     Serial.print("Message-Tail: ");
     Serial.println(msg_tail);
 
+    Serial.print("Message-Tail (bin): ");
+    printBinary(msg_tail);
+    Serial.println();
+
     Serial.println("--");
 
     long tag = hexstr_to_value(msg_data_tag, DATA_TAG_SIZE);
@@ -130,7 +170,7 @@ unsigned extract_tag() {
     lcd.clear();
     lcd.setCursor(0,0);
     lcd.print(tag);
-        
+          
     long checksum = 0;
     for (int i = 0; i < DATA_SIZE; i+= CHECKSUM_SIZE) {
       long val = hexstr_to_value(msg_data + i, CHECKSUM_SIZE);
@@ -159,4 +199,12 @@ long hexstr_to_value(char *str, unsigned int length) {
   long value = strtol(copy, NULL, 16);  // strtol converts a null-terminated string to a long value
   free(copy); // clean up 
   return value;
+}
+
+void printBinary(byte inByte)
+{
+  for (int b = 7; b >= 0; b--)
+  {
+    Serial.print(bitRead(inByte, b));
+  }
 }
