@@ -7,14 +7,16 @@
 # not support PIL/pillow (python imaging library)!
 
 import time
-import subprocess
+import asyncio
+from evdev import InputDevice, categorize, ecodes
+
+# connect to the RFID reader
+dev = InputDevice('/dev/input/event0')
 
 from board import SCL, SDA
 import busio
 from PIL import Image, ImageDraw, ImageFont
 import adafruit_ssd1306
-
-import sys
 
 # Create the I2C interface.
 i2c = busio.I2C(SCL, SDA)
@@ -58,18 +60,34 @@ x = 0
 # font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 9)
 font = ImageFont.truetype('./tt0246m_.ttf', 16)
 
-while True:
 
+async def helper(dev):
+    tagId = ""
+    tagIsDone = False
     # Draw a black filled box to clear the image.
     draw.rectangle((0, 0, width, height), outline=0, fill=0)
+    
+    async for ev in dev.async_read_loop():
+        if tagIsDone == True:
+            tagId = ""
+            tagIsDone = False
+        if ev.type == ecodes.EV_KEY and ev.value == 0: # numbers
+            if ev.code <= 11:
+                #print(ev.code-1)
+                if ev.code == 11:
+                    tagId = tagId + "0"
+                else:
+                    tagId = tagId + str(ev.code-1)
+        if ev.code == 28: # enter key up
+            print(tagId)
+            # Draw a black filled box to clear the image.
+            draw.rectangle((0, 0, width, height), outline=0, fill=0)
+            draw.text((x, top + 0), "Tag: " + tagId, font=font, fill=255)
+            # Display image.
+            disp.image(image)
+            disp.show()
+            tagIsDone = True
 
-    tagId = sys.stdin.readline()
-    # Write four lines of text.
-
-    draw.text((x, top + 0), "Tag: " + tagId, font=font, fill=255)
-
-    # Display image.
-    disp.image(image)
-    disp.show()
-    time.sleep(0.1)
+loop = asyncio.get_event_loop()
+loop.run_until_complete(helper(dev))
 
